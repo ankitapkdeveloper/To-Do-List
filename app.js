@@ -1,26 +1,137 @@
-const $=s=>document.querySelector(s);const $$=s=>[...document.querySelectorAll(s)];
-const K='focuslist_clean_v2',AK='focuslist_auth_v2',AC='focuslist_accounts';
-let filter='all',category='Work',reminder=true,user=null;
-const now=new Date();const iso=d=>{const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`};
-const addTime=(days,h,m)=>{let d=new Date();d.setDate(d.getDate()+days);d.setHours(h,m,0,0);return iso(d)};
-const seed=[['Study DSA',0,9,0,'Study','💻',false],['Workout',0,18,0,'Health','💪',false],['Read a book',0,8,0,'Personal','📖',true],['Complete project',1,10,0,'Work','💼',false],['Plan weekend trip',4,13,0,'Personal','✈️',false]].map((x,i)=>({id:i+1,title:x[0],date:addTime(x[1],x[2],x[3]),category:x[4],emoji:x[5],done:x[6],description:'',reminder:true}));
-function allData(){try{return JSON.parse(localStorage.getItem(K)||'{}')}catch{return{}}}function tasks(){return allData()[user.email]||structuredClone(seed)}function setTasks(v){const d=allData();d[user.email]=v;localStorage.setItem(K,JSON.stringify(d))}
-function same(a,b){return a.toDateString()===b.toDateString()}function label(t){let d=new Date(t.date),n=new Date();let day=same(d,n)?'Today':same(d,new Date(n.getFullYear(),n.getMonth(),n.getDate()+1))?'Tomorrow':d.toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short'});return `${day} · ${d.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})}`}
-function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
-function render(){let ts=tasks();let f=ts.filter(t=>filter==='all'||filter==='completed'&&t.done||filter==='today'&&same(new Date(t.date),new Date())&&!t.done||filter==='upcoming'&&new Date(t.date)>new Date()&&!same(new Date(t.date),new Date())&&!t.done);$('#taskList').innerHTML=f.length?f.map(t=>`<article class="task ${t.done?'done':''}"><button class="check ${t.done?'done':''}" data-id="${t.id}">${t.done?'✓':''}</button><div class="task-main"><div class="task-title">${esc(t.title)}</div><div class="meta">${t.emoji||'📝'} &nbsp;${label(t)}</div></div><span class="tag ${t.category}">${t.category}</span></article>`).join(''):'<div style="text-align:center;color:#8492a5;padding:40px 0">No tasks here yet.</div>';$$('.check').forEach(b=>b.onclick=()=>{let v=tasks();v=v.map(t=>t.id===+b.dataset.id?{...t,done:!t.done}:t);setTasks(v);render()});renderPreview()}
-function renderPreview(){let t=tasks().filter(x=>same(new Date(x.date),new Date()));$('#todayCount').textContent=`${t.length} task${t.length===1?'':'s'}`;$('#preview').innerHTML=t.map(x=>`<div class="preview-item"><span>${x.done?'☑':'☐'} ${esc(x.title)}</span><small>${new Date(x.date).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})}</small></div>`).join('')||'<div style="color:#7f8ca0">No tasks for today.</div>'}
-function openAdd(){$('#addScreen').classList.remove('hidden');$('#titleInput').focus();let d=new Date();d.setMinutes(Math.ceil(d.getMinutes()/15)*15);$('#dateInput').value=iso(d)}function closeAdd(){$('#addScreen').classList.add('hidden')}
-function save(){let title=$('#titleInput').value.trim();if(!title){$('#titleInput').focus();return}let ts=tasks();ts.unshift({id:Date.now(),title,date:$('#dateInput').value||iso(new Date()),category,emoji:{Work:'💼',Study:'💻',Personal:'📖',Health:'💪'}[category],done:false,description:$('#descInput').value.trim(),reminder});setTasks(ts);$('#titleInput').value='';$('#descInput').value='';closeAdd();render()}
-function readAccounts(){try{return JSON.parse(localStorage.getItem(AC)||'{}')}catch{return{}}}
-function initDemoAccount(){let a=readAccounts();if(!a['demo@focuslist.app']){a['demo@focuslist.app']='demo12345';localStorage.setItem(AC,JSON.stringify(a))}}
-function auth(){let a=null;try{a=JSON.parse(localStorage.getItem(AK)||'null')}catch{}if(a?.email){user=a;$('#login').classList.remove('show');render()}else $('#login').classList.add('show')}
-function submitAuth(){let e=$('#email').value.trim().toLowerCase(),p=$('#password').value;if(!e||!p){$('#authError').textContent='Enter your email and password.';return}let accounts=readAccounts();let register=$('#authBtn').dataset.mode==='register';if(register){if(!/^\S+@\S+\.\S+$/.test(e)){$('#authError').textContent='Enter a valid email address.';return}if(p.length<4){$('#authError').textContent='Password must contain at least 4 characters.';return}if(accounts[e]){$('#authError').textContent='This account already exists. Switch to Log in.';return}accounts[e]=p;localStorage.setItem(AC,JSON.stringify(accounts))}else if(accounts[e]!==p){$('#authError').textContent='Invalid email or password. Try demo@focuslist.app / demo12345, or create an account.';return}localStorage.setItem(AK,JSON.stringify({email:e}));auth()}
-$('#authBtn').onclick=submitAuth;
-$('#email').addEventListener('keydown',e=>{if(e.key==='Enter')$('#password').focus()});
-$('#password').addEventListener('keydown',e=>{if(e.key==='Enter')submitAuth()});
-initDemoAccount();
-$('#switchAuth').onclick=()=>{let b=$('#authBtn'),r=b.dataset.mode==='register';b.dataset.mode=r?'login':'register';b.textContent=r?'Log in':'Create account';$('#switchAuth').textContent=r?'Create a new account':'Already have an account? Log in';$('#authError').textContent=''};
-$('#menuBtn').onclick=()=>$('#menuPanel').classList.toggle('show');$('#logout').onclick=()=>{localStorage.removeItem(AK);location.reload()};$('#clear').onclick=()=>{if(confirm('Clear all tasks?')){setTasks([]);render();$('#menuPanel').classList.remove('show')}};$('#restore').onclick=()=>{setTasks(structuredClone(seed));render();$('#menuPanel').classList.remove('show')};
-$('#addBtn').onclick=openAdd;$('#backBtn').onclick=closeAdd;$('#saveBtn').onclick=save;$('#chips').onclick=e=>{if(!e.target.matches('.chip'))return;category=e.target.dataset.cat;$$('.chip').forEach(x=>x.classList.toggle('selected',x.dataset.cat===category))};$('#reminder').onclick=()=>{reminder=!reminder;$('#reminder').classList.toggle('off',!reminder)};$('#tabs').onclick=e=>{if(e.target.tagName!=='BUTTON')return;filter=e.target.dataset.filter;$$('#tabs button').forEach(b=>b.classList.toggle('active',b===e.target));render()};
-$('#fullBtn').onclick=async()=>{try{if(!document.fullscreenElement)await document.documentElement.requestFullscreen();else await document.exitFullscreen()}catch{alert('Fullscreen is controlled by your browser.') }};
-$('#calendar').onclick=()=>alert('Calendar view is coming next.');$('#stats').onclick=()=>{let t=tasks(),done=t.filter(x=>x.done).length;alert(`Tasks: ${t.length}\nCompleted: ${done}`)};$('#settings').onclick=()=>$('#menuPanel').classList.toggle('show');auth();
+(() => {
+const cfg = window.SUPABASE_CONFIG || {};
+const configured = cfg.url && /^https:\/\/.+\.supabase\.co$/i.test(cfg.url) &&
+                   cfg.anonKey && !cfg.anonKey.includes("PASTE_");
+const sb = configured && window.supabase ? window.supabase.createClient(cfg.url, cfg.anonKey) : null;
+
+let authMode = "login", user = null, tasks = [], filter = "all";
+let selectedCategory = "Work", reminder = false;
+
+const $ = id => document.getElementById(id);
+const authScreen=$("authScreen"), home=$("homeScreen"), add=$("addScreen");
+const authError=$("authError");
+
+function show(el){el.classList.remove("hidden")} function hide(el){el.classList.add("hidden")}
+function esc(s){return String(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
+function formatDue(v){
+ if(!v) return "No date";
+ const d=new Date(v); if(Number.isNaN(d)) return "No date";
+ return d.toLocaleDateString(undefined,{month:"short",day:"numeric"})+" · "+d.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});
+}
+function isToday(v){ if(!v)return false; const d=new Date(v),n=new Date(); return d.toDateString()===n.toDateString(); }
+function isFuture(v){ return v && new Date(v).toDateString()!==new Date().toDateString() && new Date(v)>new Date(); }
+
+async function loadTasks(){
+ if(!sb||!user)return;
+ const {data,error}=await sb.from("tasks").select("*").eq("user_id",user.id).order("created_at",{ascending:false});
+ if(error){toastError(error.message);return}
+ tasks=data||[]; render();
+}
+function visibleTasks(){
+ return tasks.filter(t=>{
+   if(filter==="completed") return t.completed;
+   if(filter==="today") return !t.completed && isToday(t.due_at);
+   if(filter==="upcoming") return !t.completed && isFuture(t.due_at);
+   return !t.completed;
+ });
+}
+function card(t){
+ const title=esc(t.title), meta=esc(formatDue(t.due_at));
+ return `<article class="task-card">
+   <button class="check ${t.completed?'done':''}" data-check="${t.id}">${t.completed?'✓':''}</button>
+   <div class="task-main"><div class="task-title ${t.completed?'done-text':''}">${title}</div><div class="task-meta">${meta}</div></div>
+   <span class="badge ${esc(t.category)}">${esc(t.category||'Work')}</span>
+ </article>`;
+}
+function render(){
+ const v=visibleTasks(); $("taskList").innerHTML=v.map(card).join("");
+ $("emptyState").classList.toggle("hidden",v.length>0);
+ $("todayCount").textContent=tasks.filter(t=>!t.completed&&isToday(t.due_at)).length+" tasks";
+ $("preview").innerHTML=tasks.filter(t=>!t.completed&&isToday(t.due_at)).slice(0,3).map(card).join("");
+ document.querySelectorAll("[data-check]").forEach(b=>b.onclick=()=>toggleTask(b.dataset.check));
+ document.querySelectorAll(".preview [data-check]").forEach(b=>b.onclick=()=>toggleTask(b.dataset.check));
+}
+async function toggleTask(id){
+ const t=tasks.find(x=>x.id===id); if(!t)return;
+ const next=!t.completed;
+ const {error}=await sb.from("tasks").update({completed:next}).eq("id",id).eq("user_id",user.id);
+ if(error){toastError(error.message);return}
+ t.completed=next; render();
+}
+function toastError(msg){ authError.textContent=msg||"Something went wrong."; }
+
+async function authenticate(){
+ authError.textContent="";
+ if(!configured){toastError("Supabase is not configured. Open config.js and paste your Publishable/Anon key.");return}
+ const email=$("email").value.trim(), password=$("password").value;
+ if(!email||!password){toastError("Enter your email and password.");return}
+ $("authBtn").disabled=true; $("authBtn").textContent="Please wait...";
+ try{
+   if(authMode==="signup"){
+     if(password.length<6) throw new Error("Password must be at least 6 characters.");
+     const {data,error}=await sb.auth.signUp({email,password});
+     if(error) throw error;
+     if(!data.session){
+       toastError("Account created. Check your email and confirm your account, then log in.");
+       authMode="login"; updateAuthMode();
+     } else { user=data.user; await openApp(); }
+   } else {
+     const {data,error}=await sb.auth.signInWithPassword({email,password});
+     if(error) throw error;
+     user=data.user; await openApp();
+   }
+ }catch(e){toastError(e.message||"Authentication failed.");}
+ finally{$("authBtn").disabled=false;$("authBtn").textContent=authMode==="login"?"Log in":"Create account";}
+}
+function updateAuthMode(){
+ $("authTitle").textContent=authMode==="login"?"Welcome back":"Create your account";
+ $("authText").textContent=authMode==="login"?"Log in to access your tasks.":"Create an account to save tasks in the cloud.";
+ $("authBtn").textContent=authMode==="login"?"Log in":"Create account";
+ $("switchAuth").textContent=authMode==="login"?"Create a new account":"I already have an account";
+ $("password").autocomplete=authMode==="login"?"current-password":"new-password";
+ authError.textContent="";
+}
+async function openApp(){
+ hide(authScreen); hide(add); show(home); await loadTasks();
+}
+function openAdd(){
+ hide(home); show(add);
+ $("titleInput").value=""; $("descInput").value="";
+ $("dateInput").value=""; selectedCategory="Work"; reminder=false;
+ document.querySelectorAll(".chip").forEach(c=>c.classList.toggle("selected",c.dataset.cat==="Work"));
+ $("reminderBtn").classList.remove("on"); render();
+}
+async function saveTask(){
+ const title=$("titleInput").value.trim();
+ if(!title){$("titleInput").focus();return}
+ const due=$("dateInput").value ? new Date($("dateInput").value).toISOString() : null;
+ const payload={user_id:user.id,title,description:$("descInput").value.trim(),due_at:due,category:selectedCategory,completed:false,reminder};
+ const {data,error}=await sb.from("tasks").insert(payload).select().single();
+ if(error){alert("Could not save task: "+error.message);return}
+ tasks.unshift(data); hide(add);show(home);render();
+}
+async function logout(){await sb.auth.signOut();user=null;tasks=[];hide(home);hide(add);show(authScreen)}
+async function clearAll(){
+ if(!confirm("Delete all your tasks?"))return;
+ const {error}=await sb.from("tasks").delete().eq("user_id",user.id);
+ if(error){alert(error.message);return} tasks=[];render();hide($("menuPanel"));
+}
+
+$("authBtn").onclick=authenticate;
+$("switchAuth").onclick=()=>{authMode=authMode==="login"?"signup":"login";updateAuthMode()};
+$("password").addEventListener("keydown",e=>{if(e.key==="Enter")authenticate()});
+$("addBtn").onclick=openAdd; $("backBtn").onclick=()=>{hide(add);show(home)}; $("saveBtn").onclick=saveTask;
+$("menuBtn").onclick=()=>$("menuPanel").classList.toggle("hidden"); $("logoutBtn").onclick=logout; $("clearBtn").onclick=clearAll;
+$("fullscreenBtn").onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}catch(e){}};
+$("reminderBtn").onclick=()=>{reminder=!reminder;$("reminderBtn").classList.toggle("on",reminder)};
+document.querySelectorAll(".chip").forEach(c=>c.onclick=()=>{selectedCategory=c.dataset.cat;document.querySelectorAll(".chip").forEach(x=>x.classList.toggle("selected",x===c))});
+document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>{filter=b.dataset.filter;document.querySelectorAll("#tabs button").forEach(x=>x.classList.toggle("active",x===b));render()});
+["calendarBtn","statsBtn","settingsBtn"].forEach(id=>$(id).onclick=()=>alert("This section can be added next. Your tasks and authentication are already connected to Supabase."));
+
+(async function init(){
+ if(!configured){show(authScreen); authError.textContent="Setup required: paste your Supabase Publishable/Anon key into config.js."; return}
+ const {data:{session}}=await sb.auth.getSession();
+ if(session){user=session.user;await openApp()}else show(authScreen);
+ sb.auth.onAuthStateChange((_event,session)=>{if(!session&&user){user=null;tasks=[];hide(home);hide(add);show(authScreen)}});
+})();
+})();
